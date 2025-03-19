@@ -1,0 +1,15 @@
+cmake
+packaging
+setuptools>=64.0.0
+torch>=2.3.0
+wheel
+datasets
+transformers>=4.45
+safetensors
+psutil
+accelerate
+gradio
+plotly==5.9.0
+pynvml
+tqdm
+sentence_transformers
