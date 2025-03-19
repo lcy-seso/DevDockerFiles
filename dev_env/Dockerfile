@@ -53,6 +53,13 @@ RUN curl -sL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.
     # Make conda accessible to all users
     chmod -R 777 /opt/conda
 
+# Copy requirements.txt to the container
+COPY requirements.txt /tmp/requirements.txt
+
+# Install Python packages from requirements.txt
+RUN /opt/conda/bin/pip install --no-cache-dir -r /tmp/requirements.txt && \
+    rm /tmp/requirements.txt
+
 # Install pre-commit globally
 RUN pip3 install --no-cache-dir pre-commit==3.6.0
 
