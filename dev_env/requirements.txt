@@ -1,3 +1,4 @@
+cmake
 packaging
 setuptools>=64.0.0
 torch>=2.3.0
