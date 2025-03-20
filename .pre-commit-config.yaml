@@ -1,27 +1,36 @@
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v5.0.0
     hooks:
-    -   id: trailing-whitespace
+    -   id: check-added-large-files
+        args: ['--maxkb=1024']
+    -   id: check-merge-conflict
+    -   id: check-symlinks
+    -   id: detect-private-key
+        files: (?!.*third_party)^.*$ | (?!.*book)^.*$
     -   id: end-of-file-fixer
     -   id: check-yaml
-    -   id: check-added-large-files
+    -   id: check-toml
     -   id: check-ast
-    -   id: check-json
-    -   id: check-merge-conflict
-    -   id: detect-private-key
+    -   id: check-executables-have-shebangs
+    -   id: check-shebang-scripts-are-executable
+    -   id: debug-statements
+    -   id: mixed-line-ending
+        args: ['--fix=lf']
+        files: (?!.*third_party)^.*$ | (?!.*book)^.*$
 
 -   repo: https://github.com/psf/black
-    rev: 24.2.0
+    rev: 25.1.0
     hooks:
     -   id: black
         language_version: python3
 
 -   repo: https://github.com/pycqa/isort
-    rev: 5.13.2
+    rev: 6.0.1
     hooks:
     -   id: isort
         name: isort (python)
+        args: ["--profile", "black"]
 
 -   repo: https://github.com/hadolint/hadolint
     rev: v2.13.1-beta
@@ -31,17 +40,17 @@ repos:
         types: [dockerfile]
 
 -   repo: https://github.com/executablebooks/mdformat
-    rev: 0.7.17
+    rev: 0.7.22
     hooks:
     -   id: mdformat
         additional_dependencies:
-        - mdformat-gfm
-        - mdformat-frontmatter
-        - mdformat-footnote
-        - mdformat-tables
+        -   mdformat-gfm
+        -   mdformat-frontmatter
+        -   mdformat-footnote
+        -   mdformat-tables
 
 -   repo: https://github.com/commitizen-tools/commitizen
-    rev: v3.13.0
+    rev: v4.4.1
     hooks:
     -   id: commitizen
         stages: [commit-msg]

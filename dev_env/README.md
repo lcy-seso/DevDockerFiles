@@ -35,3 +35,10 @@ docker run --gpus all -it -v /home/yincao/codes/:/workspace/ ying55/dev-env:v0.1
   ```bash
   git config --global --add safe.directory '*'
   ```
+
+- If you used `setup.sh`, after running it, start vim and execute these commands to complete the setup:
+
+  ```
+  :PlugInstall
+  :CocInstall coc-json coc-python coc-julia
+  ```
