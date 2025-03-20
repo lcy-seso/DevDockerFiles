@@ -1,39 +1,274 @@
 #!/bin/bash
 
-rm -f /tmp/miniconda.sh
+# Exit on error
+set -e
 
-ln -sf /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh
-echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc
-echo "conda activate base" >> ~/.bashrc
-export PATH="/opt/conda/bin:$PATH"
-conda update -y conda
-pip install --upgrade pip
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
 
-pip3 install --no-cache-dir pre-commit==4.2.0
+# Function to check if running with sudo privileges
+check_sudo() {
+    if [ "$EUID" -ne 0 ]; then
+        echo "Please run as root (use sudo)"
+        exit 1
+    fi
+}
 
-curl -sL -o /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/download/v2.13.1-beta/hadolint-Linux-x86_64
-chmod +x /usr/local/bin/hadolint
+# Update package lists
+echo "Updating package lists..."
+sudo apt-get update
 
-sudo apt-get install -y --no-install-recommends \
-    shellcheck \
-    yamllint
+# Install essential build tools
+echo "Installing essential build tools..."
+sudo apt-get install -y build-essential curl wget git
 
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+# Install zsh if not already installed
+if ! command_exists zsh; then
+    echo "Installing zsh..."
+    sudo apt-get install -y zsh
+else
+    echo "zsh is already installed"
+fi
 
-echo "export ZSH=\"$HOME/.oh-my-zsh\"" >> ~/.zshrc
-echo "ZSH_THEME=\"robbyrussell\"" >> ~/.zshrc
-echo "plugins=(git docker)" >> ~/.zshrc
-echo "source $ZSH/oh-my-zsh.sh" >> ~/.zshrc
-echo "export PATH=\"/opt/conda/bin:$PATH\"" >> ~/.zshrc
-echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.zshrc
-echo "conda activate base" >> ~/.zshrc
+# Install oh-my-zsh if not already installed
+if [ ! -d "$HOME/.oh-my-zsh" ]; then
+    echo "Installing oh-my-zsh..."
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+else
+    echo "oh-my-zsh is already installed"
+fi
 
-sudo apt-get clean
-sudo rm -rf /var/lib/apt/lists/*
-conda clean -afy
-sudo rm -rf /tmp/* /var/tmp/*
-sudo find /var/cache/apt -type f -delete
-sudo rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/info/*
-sudo rm -rf ~/.cache/pip
+# Set zsh as default shell for current user
+if [ "$SHELL" != "$(which zsh)" ]; then
+    echo "Setting zsh as default shell (user-level)..."
+    # Add zsh shell startup to .profile if not already present
+    if ! grep -q "exec zsh" ~/.profile; then
+        echo '# Start zsh if it exists and we are in an interactive shell' >> ~/.profile
+        echo 'if [ -x "$(command -v zsh)" ] && [ -n "$PS1" ]; then' >> ~/.profile
+        echo '    exec zsh' >> ~/.profile
+        echo 'fi' >> ~/.profile
+    fi
+else
+    echo "zsh is already the default shell"
+fi
 
-echo "Setup complete. Please restart your shell or source ~/.bashrc to apply changes."
+# Install Miniconda if not already installed
+if [ ! -d "$HOME/miniconda" ]; then
+    echo "Installing Miniconda..."
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh
+    bash ~/miniconda.sh -b -p $HOME/miniconda
+    rm ~/miniconda.sh
+else
+    echo "Miniconda is already installed"
+fi
+
+# Set up conda environment
+echo "Setting up conda environment..."
+# Add conda to PATH
+export PATH="$HOME/miniconda/bin:${PATH}"
+
+# Create symbolic link for conda.sh
+if [ ! -f "/etc/profile.d/conda.sh" ]; then
+    sudo ln -s $HOME/miniconda/etc/profile.d/conda.sh /etc/profile.d/conda.sh
+fi
+
+# Configure conda for bash
+if ! grep -q "conda.sh" ~/.bashrc; then
+    echo ". $HOME/miniconda/etc/profile.d/conda.sh" >> ~/.bashrc
+    echo "conda activate base" >> ~/.bashrc
+fi
+
+# Configure conda for zsh
+if ! grep -q "conda.sh" ~/.zshrc; then
+    echo ". $HOME/miniconda/etc/profile.d/conda.sh" >> ~/.zshrc
+    echo "conda activate base" >> ~/.zshrc
+fi
+
+# Initialize conda in current shell
+source $HOME/miniconda/etc/profile.d/conda.sh
+conda activate base
+
+# Update conda
+echo "Updating conda..."
+conda update -n base -c defaults conda -y
+
+# Set up Vim configuration
+echo "Setting up Vim configuration..."
+# Create necessary directories
+mkdir -p ~/.vim/autoload
+mkdir -p ~/.vim/plugged
+
+# Install Vim-Plug
+if [ ! -f ~/.vim/autoload/plug.vim ]; then
+    echo "Installing Vim-Plug..."
+    curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
+        https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+fi
+
+# Copy vimrc
+echo "Copying vimrc..."
+cp $(dirname "$0")/vimrc ~/.vimrc
+
+# Install fzf for fuzzy finding
+if [ ! -d ~/.fzf ]; then
+    echo "Installing fzf..."
+    git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+    ~/.fzf/install --all
+fi
+
+# Install Python packages for Vim
+echo "Installing Python packages for Vim..."
+pip3 install --upgrade pip
+pip3 install black isort flake8 pylint
+
+# Install Node.js for COC.nvim
+if ! command_exists node; then
+    echo "Installing Node.js for COC.nvim..."
+    curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+fi
+
+# Configure npm to use user directory
+echo "Configuring npm to use user directory..."
+mkdir -p ~/.npm-global
+npm config set prefix '~/.npm-global'
+
+# Add npm-global to PATH if not already added
+if ! grep -q "export PATH=\"\$HOME/.npm-global/bin:\$PATH\"" ~/.zshrc; then
+    echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.zshrc
+fi
+
+# Install global npm packages for Vim
+echo "Installing npm packages for Vim..."
+export PATH=~/.npm-global/bin:$PATH
+npm install -g typescript @types/node
+
+# Install Vim plugins
+echo "Installing Vim plugins..."
+# Create a temporary vimrc for plugin installation
+cat > ~/.vimrc.tmp << 'EOL'
+call plug#begin('~/.vim/plugged')
+Plug 'junegunn/vim-plug'
+Plug 'scrooloose/nerdtree'
+Plug 'Xuyuanp/nerdtree-git-plugin'
+Plug 'vim-airline/vim-airline'
+Plug 'vim-airline/vim-airline-themes'
+Plug 'jiangmiao/auto-pairs'
+Plug 'tpope/vim-surround'
+Plug 'tpope/vim-commentary'
+Plug 'junegunn/fzf'
+Plug 'junegunn/fzf.vim'
+Plug 'neoclide/coc.nvim'
+Plug 'dense-analysis/ale'
+Plug 'Yggdroot/indentLine'
+Plug 'airblade/vim-gitgutter'
+Plug 'mhinz/vim-startify'
+Plug 'morhetz/gruvbox'
+Plug 'JuliaEditorSupport/julia-vim'
+Plug 'mindriot101/vim-yapf'
+Plug 'wuye/wuye.vim'  " Wuye colorscheme
+call plug#end()
+EOL
+
+# Install plugins using the temporary vimrc
+vim -u ~/.vimrc.tmp +PlugInstall +qall
+
+# Clean up temporary vimrc
+rm ~/.vimrc.tmp
+
+# Build COC.nvim
+echo "Building COC.nvim..."
+if [ -d ~/.vim/plugged/coc.nvim ]; then
+    cd ~/.vim/plugged/coc.nvim
+    npm ci
+    npm run build
+    cd -
+else
+    echo "Warning: COC.nvim directory not found. Please run :PlugInstall in Vim first."
+fi
+
+# Install development tools
+echo "Installing development tools..."
+sudo apt-get install -y \
+    universal-ctags \
+    python3-pip \
+    python3-dev \
+    vim \
+    tmux \
+    ripgrep \
+    fd-find \
+    tree \
+    htop
+
+# Install Python packages
+echo "Installing Python packages..."
+pip3 install --upgrade pip
+pip3 install \
+    black \
+    pylint \
+    flake8 \
+    mypy \
+    ipython \
+    pytest
+
+# Install packages from requirements.txt if it exists
+if [ -f "requirements.txt" ]; then
+    echo "Installing packages from requirements.txt..."
+    pip3 install -r requirements.txt
+else
+    echo "requirements.txt not found, skipping..."
+fi
+
+# Install Hadolint (Dockerfile linter) in user directory
+echo "Installing Hadolint..."
+mkdir -p $HOME/.local/bin
+HADOLINT_VERSION=$(curl -s "https://api.github.com/repos/hadolint/hadolint/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+wget -O $HOME/.local/bin/hadolint "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64"
+chmod +x $HOME/.local/bin/hadolint
+
+# Add .local/bin to PATH if not already added
+if ! grep -q "export PATH=\"\$HOME/.local/bin:\$PATH\"" ~/.zshrc; then
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+fi
+
+# Add common aliases if not already present
+echo "Configuring shell aliases..."
+declare -A aliases
+aliases=(
+    ["cls"]="clear"
+    ["ll"]="ls -l"
+    ["la"]="ls -a"
+    ["vi"]="vim"
+    ["grep"]="grep --color=auto"
+)
+
+# Add regular aliases
+for alias_name in "${!aliases[@]}"; do
+    if ! grep -q "alias $alias_name=" ~/.zshrc; then
+        echo "alias $alias_name='${aliases[$alias_name]}'" >> ~/.zshrc
+    fi
+done
+
+# Add suffix alias for Python files
+if ! grep -q "alias -s py=vi" ~/.zshrc; then
+    echo "alias -s py=vi" >> ~/.zshrc
+fi
+
+# Set vim as default git editor
+echo "Setting vim as default git editor..."
+git config --global core.editor "vim"
+
+# Copy and source tmux configuration if it exists
+if [ -f "tmux.conf" ]; then
+    echo "Copying tmux configuration to home directory..."
+    cp tmux.conf $HOME/.tmux.conf
+    echo "Sourcing tmux configuration..."
+    tmux source-file $HOME/.tmux.conf
+else
+    echo "No tmux configuration found, skipping..."
+fi
+
+echo "Setup completed successfully!"
+echo "Please restart your terminal to apply all changes."
