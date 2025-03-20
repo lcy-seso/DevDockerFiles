@@ -126,5 +126,26 @@ RUN echo "\nalias cls='clear'" >> ~/.zshrc && \
     echo "alias grep='grep --color=auto'" >> ~/.zshrc && \
     echo "alias -s py=vi" >> ~/.zshrc
 
+# Create ying user and add to sudo group
+RUN useradd -m -s /bin/zsh ying && \
+    echo "ying ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/ying && \
+    chmod 0440 /etc/sudoers.d/ying && \
+    # Set up zsh for ying user
+    echo "zsh" >> /etc/shells && \
+    chsh -s /bin/zsh ying && \
+    # Copy root's zsh configuration to ying user
+    cp -r /root/.oh-my-zsh /home/ying/ && \
+    cp /root/.zshrc /home/ying/ && \
+    chown -R ying:ying /home/ying/.oh-my-zsh /home/ying/.zshrc && \
+    # Set up conda for ying user
+    echo ". /opt/conda/etc/profile.d/conda.sh" >> /home/ying/.zshrc && \
+    echo "conda activate base" >> /home/ying/.zshrc && \
+    # Set up tmux for ying user
+    ln -sf /etc/tmux.conf /home/ying/.tmux.conf && \
+    chown ying:ying /home/ying/.tmux.conf
+
+# Switch to ying user
+USER ying
+
 # Set the default command to zsh
 ENTRYPOINT ["zsh"]
