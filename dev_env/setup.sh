@@ -57,7 +57,7 @@ fi
 # Install Miniconda if not already installed
 if [ ! -d "$HOME/miniconda" ]; then
     echo "Installing Miniconda..."
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh
+    wget https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Linux-x86_64.sh -O ~/miniconda.sh
     bash ~/miniconda.sh -b -p $HOME/miniconda
     rm ~/miniconda.sh
 else
@@ -69,30 +69,42 @@ echo "Setting up conda environment..."
 # Add conda to PATH
 export PATH="$HOME/miniconda/bin:${PATH}"
 
-# Create symbolic link for conda.sh
-if [ ! -f "/etc/profile.d/conda.sh" ]; then
-    sudo ln -s $HOME/miniconda/etc/profile.d/conda.sh /etc/profile.d/conda.sh
-fi
-
-# Configure conda for bash
+# Configure conda initialization and automatic base activation for bash
 if ! grep -q "conda.sh" ~/.bashrc; then
-    echo ". $HOME/miniconda/etc/profile.d/conda.sh" >> ~/.bashrc
-    echo "conda activate base" >> ~/.bashrc
+    cat >> ~/.bashrc << 'EOL'
+# Initialize Conda
+if [ -f "$HOME/miniconda/etc/profile.d/conda.sh" ]; then
+    . "$HOME/miniconda/etc/profile.d/conda.sh"
+    conda activate base
+fi
+EOL
 fi
 
-# Configure conda for zsh
+# Configure conda initialization and automatic base activation for zsh
 if ! grep -q "conda.sh" ~/.zshrc; then
-    echo ". $HOME/miniconda/etc/profile.d/conda.sh" >> ~/.zshrc
-    echo "conda activate base" >> ~/.zshrc
+    cat >> ~/.zshrc << 'EOL'
+# Initialize Conda
+if [ -f "$HOME/miniconda/etc/profile.d/conda.sh" ]; then
+    . "$HOME/miniconda/etc/profile.d/conda.sh"
+    conda activate base
 fi
-
-# Initialize conda in current shell
-source $HOME/miniconda/etc/profile.d/conda.sh
-conda activate base
+EOL
+fi
 
 # Update conda
 echo "Updating conda..."
 conda update -n base -c defaults conda -y
+
+# Install pip3 in the conda environment
+conda install -n base pip -y
+
+# Initialize conda for the current shell
+echo "Initializing conda for the current shell..."
+eval "$(conda shell.$(basename $SHELL) hook)"
+
+# Activate conda base environment for the current shell
+echo "Activating conda base environment for the current shell..."
+conda activate base
 
 # Set up Vim configuration
 echo "Setting up Vim configuration..."
@@ -193,25 +205,12 @@ fi
 echo "Installing development tools..."
 sudo apt-get install -y \
     universal-ctags \
-    python3-pip \
-    python3-dev \
     vim \
     tmux \
     ripgrep \
     fd-find \
     tree \
     htop
-
-# Install Python packages
-echo "Installing Python packages..."
-pip3 install --upgrade pip
-pip3 install \
-    black \
-    pylint \
-    flake8 \
-    mypy \
-    ipython \
-    pytest
 
 # Install packages from requirements.txt if it exists
 if [ -f "requirements.txt" ]; then
