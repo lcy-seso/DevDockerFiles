@@ -111,7 +111,8 @@ RUN apt-get update && \
     curl \
     git \
     tmux \
-    vim && \
+    vim \
+    openssh-server && \
     # Cleanup
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -161,18 +162,38 @@ RUN git config --system --add safe.directory '*' && \
     git config --global user.email "lcy.seso@gmail.com" && \
     # Set up SSH server
     mkdir -p /var/run/sshd && \
-    # Disable strict host key checking for localhost connections
     mkdir -p /root/.ssh && \
-    echo "Host localhost\n\tStrictHostKeyChecking no\n\tUserKnownHostsFile /dev/null" > /root/.ssh/config && \
-    # Set SSH configuration to allow password authentication
-    echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config && \
-    echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
-    # Set a secure password for root
-    echo "root:Docker!" | chpasswd
+    chmod 700 /root/.ssh && \
+    # Set SSH configuration for security
+    echo "PasswordAuthentication no" >> /etc/ssh/sshd_config && \
+    echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config && \
+    echo "PermitRootLogin prohibit-password" >> /etc/ssh/sshd_config
 
 # Add a script to start services and then execute the provided command or default shell
 COPY <<-"EOF" /usr/local/bin/entrypoint.sh
 #!/bin/bash
+
+# Generate SSH host keys if they don't exist
+if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
+    ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N ""
+fi
+if [ ! -f /etc/ssh/ssh_host_ecdsa_key ]; then
+    ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N ""
+fi
+if [ ! -f /etc/ssh/ssh_host_ed25519_key ]; then
+    ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ""
+fi
+
+# Check if SSH_PUBLIC_KEY environment variable is set
+if [ -n "$SSH_PUBLIC_KEY" ]; then
+    echo "Adding provided public key to authorized_keys..."
+    echo "$SSH_PUBLIC_KEY" > /root/.ssh/authorized_keys
+    chmod 600 /root/.ssh/authorized_keys
+    echo "SSH public key configured."
+else
+    echo "WARNING: No SSH_PUBLIC_KEY provided. You will not be able to SSH into this container!"
+    echo "Run with: docker run -e SSH_PUBLIC_KEY=\"\$(cat ~/.ssh/id_rsa.pub)\" ..."
+fi
 
 # Start SSH server in the background
 echo "Starting SSH server..."
