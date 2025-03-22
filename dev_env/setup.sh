@@ -45,10 +45,10 @@ if [ "$SHELL" != "$(which zsh)" ]; then
     echo "Setting zsh as default shell (user-level)..."
     # Add zsh shell startup to .profile if not already present
     if ! grep -q "exec zsh" ~/.profile; then
-        echo '# Start zsh if it exists and we are in an interactive shell' >> ~/.profile
-        echo 'if [ -x "$(command -v zsh)" ] && [ -n "$PS1" ]; then' >> ~/.profile
-        echo '    exec zsh' >> ~/.profile
-        echo 'fi' >> ~/.profile
+        echo '# Start zsh if it exists and we are in an interactive shell' >>~/.profile
+        echo 'if [ -x "$(command -v zsh)" ] && [ -n "$PS1" ]; then' >>~/.profile
+        echo '    exec zsh' >>~/.profile
+        echo 'fi' >>~/.profile
     fi
 else
     echo "zsh is already the default shell"
@@ -71,7 +71,7 @@ export PATH="$HOME/miniconda/bin:${PATH}"
 
 # Configure conda initialization and automatic base activation for bash
 if ! grep -q "conda.sh" ~/.bashrc; then
-    cat >> ~/.bashrc << 'EOL'
+    cat >>~/.bashrc <<'EOL'
 # Initialize Conda
 if [ -f "$HOME/miniconda/etc/profile.d/conda.sh" ]; then
     . "$HOME/miniconda/etc/profile.d/conda.sh"
@@ -82,7 +82,7 @@ fi
 
 # Configure conda initialization and automatic base activation for zsh
 if ! grep -q "conda.sh" ~/.zshrc; then
-    cat >> ~/.zshrc << 'EOL'
+    cat >>~/.zshrc <<'EOL'
 # Initialize Conda
 if [ -f "$HOME/miniconda/etc/profile.d/conda.sh" ]; then
     . "$HOME/miniconda/etc/profile.d/conda.sh"
@@ -91,6 +91,11 @@ fi
 EOL
 fi
 
+# Initialize conda for the current shell
+echo "Initializing conda for the current shell..."
+source $HOME/miniconda/etc/profile.d/conda.sh
+conda activate base
+
 # Update conda
 echo "Updating conda..."
 conda update -n base -c defaults conda -y
@@ -98,42 +103,19 @@ conda update -n base -c defaults conda -y
 # Install pip3 in the conda environment
 conda install -n base pip -y
 
-# Initialize conda for the current shell
-echo "Initializing conda for the current shell..."
-eval "$(conda shell.$(basename $SHELL) hook)"
-
-# Activate conda base environment for the current shell
-echo "Activating conda base environment for the current shell..."
-conda activate base
-
-# Set up Vim configuration
-echo "Setting up Vim configuration..."
-# Create necessary directories
-mkdir -p ~/.vim/autoload
-mkdir -p ~/.vim/plugged
-
-# Install Vim-Plug
-if [ ! -f ~/.vim/autoload/plug.vim ]; then
-    echo "Installing Vim-Plug..."
-    curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
-        https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-fi
-
-# Copy vimrc
-echo "Copying vimrc..."
-cp $(dirname "$0")/vimrc ~/.vimrc
-
-# Install fzf for fuzzy finding
-if [ ! -d ~/.fzf ]; then
-    echo "Installing fzf..."
-    git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
-    ~/.fzf/install --all
-fi
-
-# Install Python packages for Vim
-echo "Installing Python packages for Vim..."
+# Install Python packages for Vim and development
+echo "Installing Python packages..."
 pip3 install --upgrade pip
-pip3 install black isort flake8 pylint
+
+# Install packages from requirements.txt if it exists
+if [ -f "requirements.txt" ]; then
+    echo "Installing packages from requirements.txt..."
+    pip3 install -r requirements.txt
+else
+    # Install minimal set of Python packages if requirements.txt doesn't exist
+    echo "requirements.txt not found, installing minimal set of packages..."
+    pip3 install black isort flake8 pylint
+fi
 
 # Install Node.js for COC.nvim
 if ! command_exists node; then
@@ -149,7 +131,7 @@ npm config set prefix '~/.npm-global'
 
 # Add npm-global to PATH if not already added
 if ! grep -q "export PATH=\"\$HOME/.npm-global/bin:\$PATH\"" ~/.zshrc; then
-    echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.zshrc
+    echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >>~/.zshrc
 fi
 
 # Install global npm packages for Vim
@@ -160,7 +142,7 @@ npm install -g typescript @types/node
 # Install Vim plugins
 echo "Installing Vim plugins..."
 # Create a temporary vimrc for plugin installation
-cat > ~/.vimrc.tmp << 'EOL'
+cat >~/.vimrc.tmp <<'EOL'
 call plug#begin('~/.vim/plugged')
 Plug 'junegunn/vim-plug'
 Plug 'scrooloose/nerdtree'
@@ -212,14 +194,6 @@ sudo apt-get install -y \
     tree \
     htop
 
-# Install packages from requirements.txt if it exists
-if [ -f "requirements.txt" ]; then
-    echo "Installing packages from requirements.txt..."
-    pip3 install -r requirements.txt
-else
-    echo "requirements.txt not found, skipping..."
-fi
-
 # Install Hadolint (Dockerfile linter) in user directory
 echo "Installing Hadolint..."
 mkdir -p $HOME/.local/bin
@@ -229,7 +203,7 @@ chmod +x $HOME/.local/bin/hadolint
 
 # Add .local/bin to PATH if not already added
 if ! grep -q "export PATH=\"\$HOME/.local/bin:\$PATH\"" ~/.zshrc; then
-    echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >>~/.zshrc
 fi
 
 # Add common aliases if not already present
@@ -246,13 +220,13 @@ aliases=(
 # Add regular aliases
 for alias_name in "${!aliases[@]}"; do
     if ! grep -q "alias $alias_name=" ~/.zshrc; then
-        echo "alias $alias_name='${aliases[$alias_name]}'" >> ~/.zshrc
+        echo "alias $alias_name='${aliases[$alias_name]}'" >>~/.zshrc
     fi
 done
 
 # Add suffix alias for Python files
 if ! grep -q "alias -s py=vi" ~/.zshrc; then
-    echo "alias -s py=vi" >> ~/.zshrc
+    echo "alias -s py=vi" >>~/.zshrc
 fi
 
 # Set vim as default git editor
@@ -267,6 +241,30 @@ if [ -f "tmux.conf" ]; then
     tmux source-file $HOME/.tmux.conf
 else
     echo "No tmux configuration found, skipping..."
+fi
+
+# Set up Vim configuration
+echo "Setting up Vim configuration..."
+# Create necessary directories
+mkdir -p ~/.vim/autoload
+mkdir -p ~/.vim/plugged
+
+# Install Vim-Plug
+if [ ! -f ~/.vim/autoload/plug.vim ]; then
+    echo "Installing Vim-Plug..."
+    curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
+        https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+fi
+
+# Copy vimrc
+echo "Copying vimrc..."
+cp $(dirname "$0")/vimrc ~/.vimrc
+
+# Install fzf for fuzzy finding
+if [ ! -d ~/.fzf ]; then
+    echo "Installing fzf..."
+    git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+    ~/.fzf/install --all
 fi
 
 echo "Setup completed successfully!"

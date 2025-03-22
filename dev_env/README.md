@@ -28,7 +28,7 @@ run the docker container
 docker run --gpus all -it -v /home/yincao/codes/:/workspace/ ying55/dev-env:v0.1
 ```
 
-### Some known issues.
+### Some known issues
 
 - You may need to run the following git command to allow sharing across users in the container.
 

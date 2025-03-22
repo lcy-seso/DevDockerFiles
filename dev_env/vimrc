@@ -5,59 +5,17 @@ set fileencodings=ucs-bom,utf-8,cp936
 set termencoding=utf-8
 set fileformats=unix
 
-let g:coc_disable_startup_warning = 1
-
-" Vim-Plug Plugin Manager
-if empty(glob('~/.vim/autoload/plug.vim'))
-  silent !curl -fLo ~/.vim/autoload/plug.vim --create-dirs
-    \ https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-  autocmd VimEnter * PlugInstall --sync | source $MYVIMRC
-endif
-
-call plug#begin('~/.vim/plugged')
-
-" Essential plugins
-Plug 'junegunn/vim-plug'
-Plug 'scrooloose/nerdtree'
-Plug 'Xuyuanp/nerdtree-git-plugin'
-Plug 'vim-airline/vim-airline'
-Plug 'vim-airline/vim-airline-themes'
-Plug 'jiangmiao/auto-pairs'
-Plug 'tpope/vim-surround'
-Plug 'tpope/vim-commentary'
-Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
-Plug 'junegunn/fzf.vim'
-Plug 'neoclide/coc.nvim', {'branch': 'release'}
-Plug 'dense-analysis/ale'
-Plug 'Yggdroot/indentLine'
-Plug 'airblade/vim-gitgutter'
-Plug 'mhinz/vim-startify'
-Plug 'morhetz/gruvbox'  " Alternative colorscheme
-
-" Language specific plugins
-Plug 'JuliaEditorSupport/julia-vim'
-Plug 'mindriot101/vim-yapf'
-
-call plug#end()
-
 " UI Settings
 set background=dark
 set termguicolors
-try
-    colorscheme wuye
-catch
-    colorscheme gruvbox
-endtry
+" Use gruvbox if available, otherwise default colorscheme
+silent! colorscheme gruvbox
 set number
-set relativenumber
 set cursorline
-set showcmd
 set laststatus=2
-set cmdheight=2
-set shortmess=a
-set ruler
 set showmatch
-set matchtime=1
+set showcmd
+set ruler
 
 " Editor Settings
 set expandtab
@@ -66,14 +24,7 @@ set shiftwidth=4
 set softtabstop=4
 set autoindent
 set smartindent
-set list
-set listchars=tab:>-,trail:-
-set scrolloff=8
-set sidescrolloff=8
 set nowrap
-set linebreak
-set breakindent
-set breakindentopt=shift:2
 
 " Search Settings
 set hlsearch
@@ -84,9 +35,6 @@ set smartcase
 " Performance Settings
 set lazyredraw
 set ttyfast
-set timeoutlen=1000
-set ttimeoutlen=0
-set updatetime=300
 set noundofile
 set nobackup
 set noswapfile
@@ -97,94 +45,16 @@ syntax enable
 
 " Key Mappings
 let mapleader = " "
-nnoremap <leader>h :wincmd h<CR>
-nnoremap <leader>j :wincmd j<CR>
-nnoremap <leader>k :wincmd k<CR>
-nnoremap <leader>l :wincmd l<CR>
 nnoremap <leader>w :w<CR>
 nnoremap <leader>q :q<CR>
-nnoremap <leader>e :NERDTreeToggle<CR>
-nnoremap <leader>f :Files<CR>
-nnoremap <leader>g :Git<CR>
-nnoremap <leader>c :Commentary<CR>
-nnoremap <leader>p :Yapf<CR>
-
-" NERDTree Settings
-let NERDTreeWinPos='left'
-let NERDTreeShowHidden=1
-let NERDTreeIgnore=['\.pyc$', '\~$', '\.swp$']
-
-" Airline Settings
-try
-    let g:airline_theme='wuye'
-catch
-    let g:airline_theme='gruvbox'
-endtry
-let g:airline#extensions#tabline#enabled = 1
-let g:airline#extensions#tabline#formatter = 'unique_tail'
-
-" ALE Settings
-let g:ale_linters = {
-\   'python': ['flake8', 'pylint'],
-\   'julia': ['languageserver'],
-\}
-let g:ale_fixers = {
-\   'python': ['black', 'isort'],
-\}
-let g:ale_fix_on_save = 1
-
-" COC Settings
-let g:coc_global_extensions = ['coc-json', 'coc-python', 'coc-julia']
-let g:coc_disable_startup_warning = 1
-
-" Use tab for trigger completion with characters ahead and navigate
-inoremap <silent><expr> <TAB>
-      \ pumvisible() ? "\<C-n>" :
-      \ <SID>check_back_space() ? "\<TAB>" :
-      \ coc#refresh()
-inoremap <expr><S-TAB> pumvisible() ? "\<C-p>" : "\<C-h>"
-
-" Use <cr> to confirm completion
-inoremap <silent><expr> <cr> pumvisible() ? coc#_select_confirm()
-                              \: "\<C-g>u\<CR>\<c-r>=coc#on_enter()\<CR>"
-
-function! s:check_back_space() abort
-  let col = col('.') - 1
-  return !col || getline('.')[col - 1]  =~# '\s'
-endfunction
+nnoremap <leader>e :Explore<CR>
+nnoremap <leader>c :set cursorline!<CR>
 
 " Auto Commands
 if has("autocmd")
   augroup vimrc
     autocmd!
-
     " Remember last position
-    autocmd BufReadPost *
-      \ if line("'\"") > 0 && line("'\"") <= line("$") |
-      \   exe "normal! g`\"" |
-      \ endif
-
-    " Set file templates
-    autocmd BufNewFile *.py,*.sh,*.jl exec ":call SetTitle()"
-
-    " Set text width for text files
-    autocmd BufRead *.txt set tw=78
-
-    " Don't write swapfile on NFS or USB
-    autocmd BufNewFile,BufReadPre /media/*,/mnt/* set directory=~/tmp,/var/tmp,/tmp
+    autocmd BufReadPost * if line("'\"") > 0 && line("'\"") <= line("$") | exe "normal! g`\"" | endif
   augroup END
 endif
-
-" Custom Functions
-function! SetTitle()
-    if &filetype == 'python'
-        call setline(1,"#!/usr/bin/env python")
-        call setline(2, "# coding=utf-8")
-    elseif &filetype == 'sh'
-        call setline(1, "#!/bin/bash")
-        call setline(2, "")
-    elseif &filetype == 'julia'
-        call setline(1, "#!/usr/bin/env julia")
-        call setline(2, "# coding=utf-8")
-    endif
-endfunction
