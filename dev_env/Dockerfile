@@ -9,9 +9,13 @@ RUN apt-get update && \
     zsh \
     curl \
     git \
-    tmux && \
+    tmux \
+    build-essential \
+    openjdk-8-jdk \
+    openssh-server \
+    openssh-client && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install Miniconda
 RUN curl -sL https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Linux-x86_64.sh -o /tmp/miniconda.sh && \
@@ -154,11 +158,25 @@ ENV LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 # Configure Git to trust the workspace directory by default
 RUN git config --system --add safe.directory '*' && \
     git config --global user.name "lcy-seso" && \
-    git config --global user.email "lcy.seso@gmail.com"
+    git config --global user.email "lcy.seso@gmail.com" && \
+    # Set up SSH server
+    mkdir -p /var/run/sshd && \
+    # Disable strict host key checking for localhost connections
+    mkdir -p /root/.ssh && \
+    echo "Host localhost\n\tStrictHostKeyChecking no\n\tUserKnownHostsFile /dev/null" > /root/.ssh/config && \
+    # Set SSH configuration to allow password authentication
+    echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config && \
+    echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
+    # Set a secure password for root
+    echo "root:Docker!" | chpasswd
 
 # Add a script to start services and then execute the provided command or default shell
 COPY <<-"EOF" /usr/local/bin/entrypoint.sh
 #!/bin/bash
+
+# Start SSH server in the background
+echo "Starting SSH server..."
+/usr/sbin/sshd
 
 # Check if we're running as root
 if [ "$(id -u)" -eq 0 ]; then
@@ -185,7 +203,7 @@ if [ -d "/workspace" ]; then
     # Use --global instead of --system to avoid permission issues
     git config --global --add safe.directory '*'
     git config --global --add safe.directory /workspace
-
+    
     # Find other Git repositories in workspace and trust them
     find /workspace -maxdepth 3 -name ".git" -type d | while read -r git_dir; do
         repo_dir=$(dirname "$git_dir")
@@ -204,6 +222,12 @@ EOF
 
 # Make the entrypoint script executable
 RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Note: We're intentionally keeping root as the user despite DL3002 warning
+# since this is a development container in a controlled environment
+
+# Expose SSH port
+EXPOSE 22
 
 # Set the entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
